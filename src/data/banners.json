@@ -1,0 +1,72 @@
+[
+  {
+    "id": "banner-1",
+    "title": "SENSATIONAL SCATTER HITAM",
+    "headline": "Mahjong Wins 3: Black Scatter",
+    "subtitle": "Rasio kemenangan memuncak di 99.18%! Fitur scatter hitam aktif memberikan perkalian pengali hingga x100.000.",
+    "badge": "🔥 TOP SPOTLIGHT GACOR",
+    "image": "/games/pragmatic/1 Mahjong Wins 3 – Black Scatter.jpg",
+    "gameSlug": "mahjong-wins-3-black-scatter-pragmatic",
+    "provider": "Pragmatic Play",
+    "rtp": 99.18,
+    "accentColor": "from-amber-500 via-rose-600 to-purple-700",
+    "isActive": true,
+    "order": 1
+  },
+  {
+    "id": "banner-2",
+    "title": "PETIR MERAH MULTIPLIER x1000",
+    "headline": "Gates of Olympus 1000",
+    "subtitle": "Sambaran petir kakek Zeus berkali-kali lipat lebih dahsyat. Jam prime time server WIB saat ini berstatus sangat gacor.",
+    "badge": "⚡ PETIR SENSASIONAL",
+    "image": "/games/pragmatic/2 Gates of Olympus 1000.jpg",
+    "gameSlug": "gates-of-olympus-1000-pragmatic",
+    "provider": "Pragmatic Play",
+    "rtp": 98.92,
+    "accentColor": "from-purple-600 via-indigo-600 to-cyan-500",
+    "isActive": true,
+    "order": 2
+  },
+  {
+    "id": "banner-3",
+    "title": "FREESPIN TUMBLE BERANTAI",
+    "headline": "Mahjong Ways 2",
+    "subtitle": "Transformasi simbol berlapis emas PG Soft dengan multiplier bertingkat tanpa batas. Pilihan utama jutaan pemain harian.",
+    "badge": "👑 FAVORIT KOMUNITAS",
+    "image": "/games/pgsoft/2 Mahjong Ways 2.jpg",
+    "gameSlug": "mahjong-ways-2-pgsoft",
+    "provider": "PG Soft",
+    "rtp": 98.75,
+    "accentColor": "from-emerald-500 via-teal-600 to-blue-700",
+    "isActive": true,
+    "order": 3
+  },
+  {
+    "id": "banner-4",
+    "title": "TONGTEK SENSATIONAL SUPER SCATTER",
+    "headline": "Starlight Princess™ 1000",
+    "subtitle": "Sang putri bintang membagikan tongkat pengali hingga 1000x di setiap putaran freespin. Pola turbo terbukti ampuh!",
+    "badge": "✨ WINRATE 99.13%",
+    "image": "/games/pragmatic/4 Starlight Princess™ 1000.jpg",
+    "gameSlug": "starlight-princess-1000-pragmatic",
+    "provider": "Pragmatic Play",
+    "rtp": 99.13,
+    "accentColor": "from-pink-500 via-rose-500 to-amber-500",
+    "isActive": true,
+    "order": 4
+  },
+  {
+    "id": "banner-5",
+    "title": "JAWARA SLOT LOKAL INDONESIA",
+    "headline": "Goyang Gaib Slot88",
+    "subtitle": "Karakter lokal legendaris dengan volatilitas ramah pemula dan freespin melimpah. Hit-rate konsisten sepanjang hari.",
+    "badge": "🏆 INDONESIA PRIDE",
+    "image": "/games/slot88/1 Goyang Gaib.jpg",
+    "gameSlug": "goyang-gaib-slot88",
+    "provider": "Slot88",
+    "rtp": 98.65,
+    "accentColor": "from-amber-500 via-orange-600 to-red-700",
+    "isActive": true,
+    "order": 5
+  }
+]
