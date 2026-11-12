@@ -63,3 +63,15 @@ export interface Article {
   image: string;
   relatedGameSlugs: string[];
 }
+
+export interface NavButtonConfig {
+  label: string;
+  url: string;
+  target: '_blank' | '_self';
+  isActive: boolean;
+}
+
+export interface SiteSettings {
+  loginButton: NavButtonConfig;
+  registerButton: NavButtonConfig;
+}

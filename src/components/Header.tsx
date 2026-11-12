@@ -15,8 +15,12 @@ import {
   Clock, 
   ShieldAlert, 
   Sparkles,
-  Settings
+  Settings,
+  LogIn,
+  UserPlus
 } from 'lucide-react';
+import { SiteSettings } from '@/types';
+import initialSettings from '@/data/settings.json';
 
 interface HeaderProps {
   onOpenSearch?: () => void;
@@ -26,6 +30,52 @@ export function Header({ onOpenSearch }: HeaderProps) {
   const pathname = usePathname();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [wibTime, setWibTime] = useState<string>('');
+  const [settings, setSettings] = useState<SiteSettings>(initialSettings as SiteSettings);
+
+  // Sync settings from server API & localStorage
+  useEffect(() => {
+    const loadSettings = () => {
+      try {
+        const cached = localStorage.getItem('admin_nav_settings');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.loginButton && parsed.registerButton) {
+            setSettings(parsed);
+          }
+        }
+      } catch (err) {
+        // ignore JSON parse error
+      }
+
+      fetch('/api/settings')
+        .then((res) => {
+          if (!res.ok) throw new Error('Network response not ok');
+          return res.json();
+        })
+        .then((data: SiteSettings) => {
+          if (data && data.loginButton && data.registerButton) {
+            setSettings(data);
+            try {
+              localStorage.setItem('admin_nav_settings', JSON.stringify(data));
+            } catch (err) {}
+          }
+        })
+        .catch(() => {
+          // Fallback to initial
+        });
+    };
+
+    loadSettings();
+
+    const handleUpdate = () => loadSettings();
+    window.addEventListener('nav-settings-updated', handleUpdate);
+    window.addEventListener('storage', handleUpdate);
+
+    return () => {
+      window.removeEventListener('nav-settings-updated', handleUpdate);
+      window.removeEventListener('storage', handleUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const updateClock = () => {
@@ -126,10 +176,10 @@ export function Header({ onOpenSearch }: HeaderProps) {
             })}
           </nav>
 
-          {/* Right Action & Clock */}
-          <div className="hidden lg:flex items-center gap-4">
+          {/* Right Action & Clock & Auth Buttons */}
+          <div className="hidden md:flex items-center gap-2 lg:gap-3">
             {/* Realtime WIB Clock */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs font-mono text-emerald-400">
+            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80 border border-slate-800 text-xs font-mono text-emerald-400">
               <Clock className="w-3.5 h-3.5 text-emerald-400 animate-spin" style={{ animationDuration: '8s' }} />
               <span>{wibTime || '00:00:00 WIB'}</span>
             </div>
@@ -137,19 +187,58 @@ export function Header({ onOpenSearch }: HeaderProps) {
             {/* Quick Search Button */}
             <button
               onClick={onOpenSearch}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 transition-all text-sm group"
+              className="flex items-center gap-2 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white border border-slate-700 transition-all text-xs lg:text-sm group"
+              title="Cari Game (⌘K)"
             >
               <Search className="w-4 h-4 text-emerald-400 group-hover:scale-110 transition-transform" />
-              <span>Cari Game...</span>
-              <kbd className="hidden xl:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-900 text-slate-400 rounded border border-slate-700">
+              <span className="hidden lg:inline">Cari Game...</span>
+              <kbd className="hidden 2xl:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-slate-900 text-slate-400 rounded border border-slate-700">
                 ⌘K
               </kbd>
             </button>
 
+            {/* Tombol Login */}
+            {settings?.loginButton?.isActive && (
+              <a
+                href={settings.loginButton.url || '#'}
+                target={settings.loginButton.target || '_blank'}
+                rel={settings.loginButton.target === '_blank' ? 'noopener noreferrer' : undefined}
+                className="flex items-center gap-1.5 px-3 py-1.5 lg:px-3.5 lg:py-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 hover:border-slate-500 text-xs lg:text-sm font-bold transition-all shadow-sm group"
+              >
+                <LogIn className="w-3.5 h-3.5 lg:w-4 lg:h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span>{settings.loginButton.label}</span>
+              </a>
+            )}
+
+            {/* Tombol Daftar */}
+            {settings?.registerButton?.isActive && (
+              <a
+                href={settings.registerButton.url || '#'}
+                target={settings.registerButton.target || '_blank'}
+                rel={settings.registerButton.target === '_blank' ? 'noopener noreferrer' : undefined}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 lg:px-4 lg:py-2 rounded-xl bg-gradient-to-r from-amber-400 via-amber-500 to-emerald-400 hover:from-amber-300 hover:to-emerald-300 text-slate-950 text-xs lg:text-sm font-black transition-all shadow-neonGlow hover:scale-105 active:scale-95 group"
+              >
+                <UserPlus className="w-3.5 h-3.5 lg:w-4 lg:h-4 fill-slate-950 group-hover:rotate-6 transition-transform" />
+                <span>{settings.registerButton.label}</span>
+              </a>
+            )}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Right Action Area */}
           <div className="flex md:hidden items-center gap-2">
+            {/* Quick Daftar button on mobile topbar */}
+            {settings?.registerButton?.isActive && (
+              <a
+                href={settings.registerButton.url || '#'}
+                target={settings.registerButton.target || '_blank'}
+                rel={settings.registerButton.target === '_blank' ? 'noopener noreferrer' : undefined}
+                className="px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 font-black text-xs flex items-center gap-1 shadow-neonGlow"
+              >
+                <UserPlus className="w-3.5 h-3.5 fill-slate-950" />
+                <span>{settings.registerButton.label}</span>
+              </a>
+            )}
+
             <button
               onClick={onOpenSearch}
               className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
@@ -170,34 +259,67 @@ export function Header({ onOpenSearch }: HeaderProps) {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-slate-800 bg-[#090e18] px-4 pt-3 pb-6 space-y-2 animate-in slide-in-from-top duration-200">
-          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-xs font-mono text-emerald-400">
+        <div className="md:hidden border-t border-slate-800 bg-[#090e18] px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top duration-200">
+          <div className="flex items-center justify-between pb-2 mb-1 border-b border-slate-800 text-xs font-mono text-emerald-400">
             <span className="flex items-center gap-1.5">
               <Clock className="w-3.5 h-3.5" /> Waktu Server:
             </span>
             <span>{wibTime}</span>
           </div>
 
-          {navLinks.map((link) => {
-            const Icon = link.icon;
-            const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
-            return (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium ${
-                  isActive
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'text-slate-300 hover:bg-slate-800'
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {link.name}
-              </Link>
-            );
-          })}
+          {/* Tombol Login & Daftar Mobile Drawer */}
+          {(settings?.loginButton?.isActive || settings?.registerButton?.isActive) && (
+            <div className="grid grid-cols-2 gap-2 pt-1 pb-1">
+              {settings.loginButton.isActive && (
+                <a
+                  href={settings.loginButton.url || '#'}
+                  target={settings.loginButton.target || '_blank'}
+                  rel={settings.loginButton.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700 shadow-sm"
+                >
+                  <LogIn className="w-4 h-4 text-cyan-400" />
+                  <span>{settings.loginButton.label}</span>
+                </a>
+              )}
+              {settings.registerButton.isActive && (
+                <a
+                  href={settings.registerButton.url || '#'}
+                  target={settings.registerButton.target || '_blank'}
+                  rel={settings.registerButton.target === '_blank' ? 'noopener noreferrer' : undefined}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 font-black text-xs shadow-neonGlow ${
+                    !settings.loginButton.isActive ? 'col-span-2' : ''
+                  }`}
+                >
+                  <UserPlus className="w-4 h-4 fill-slate-950" />
+                  <span>{settings.registerButton.label}</span>
+                </a>
+              )}
+            </div>
+          )}
 
+          <div className="space-y-1.5 pt-1">
+            {navLinks.map((link) => {
+              const Icon = link.icon;
+              const isActive = pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href));
+              return (
+                <Link
+                  key={link.name}
+                  href={link.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium ${
+                    isActive
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'text-slate-300 hover:bg-slate-800'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {link.name}
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
     </header>

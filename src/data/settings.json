@@ -1,0 +1,14 @@
+{
+  "loginButton": {
+    "label": "Login",
+    "url": "https://slotgacor.vip/login",
+    "target": "_blank",
+    "isActive": true
+  },
+  "registerButton": {
+    "label": "Daftar",
+    "url": "https://slotgacor.vip/register",
+    "target": "_blank",
+    "isActive": true
+  }
+}

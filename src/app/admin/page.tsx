@@ -38,21 +38,29 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   AlertCircle,
-  Sliders
+  Sliders,
+  Link2,
+  LogIn,
+  UserPlus,
+  Globe,
+  Eye
 } from 'lucide-react';
-import { Game, Provider, RtpStatus, Volatility, Article } from '@/types';
+import { Game, Provider, RtpStatus, Volatility, Article, SiteSettings } from '@/types';
 import { ALL_GAMES } from '@/data/games';
 import { PROVIDERS } from '@/data/providers';
 import { ARTICLES } from '@/data/articles';
 import initialBanners from '@/data/banners.json';
+import initialSettings from '@/data/settings.json';
 import { BannerItem } from '@/components/HeroCarousel';
 
 export default function AdminDedicatedPage() {
   const router = useRouter();
-  const [activeNav, setActiveNav] = useState<'overview' | 'games' | 'providers' | 'simulator' | 'banners' | 'articles' | 'logs'>('overview');
+  const [activeNav, setActiveNav] = useState<'overview' | 'games' | 'providers' | 'simulator' | 'banners' | 'articles' | 'buttons' | 'logs'>('overview');
   const [games, setGames] = useState<Game[]>([]);
   const [articles, setArticles] = useState<Article[]>(ARTICLES);
   const [banners, setBanners] = useState<BannerItem[]>(initialBanners);
+  const [navSettings, setNavSettings] = useState<SiteSettings>(initialSettings as SiteSettings);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [editingBanner, setEditingBanner] = useState<BannerItem | null>(null);
   const [isAddBannerOpen, setIsAddBannerOpen] = useState(false);
   const [newBannerData, setNewBannerData] = useState<Partial<BannerItem>>({
@@ -142,10 +150,83 @@ export default function AdminDedicatedPage() {
           { id: '3', user: 'SuperAdmin', action: 'Jam Gacor Refresh', target: 'Slot88 Olympus Series', oldVal: 'Inactive', newVal: 'Active WIB', time: '15:10 WIB' },
         ]);
       }
+
+      // Load Navigation Button Settings
+      const savedSettings = localStorage.getItem('admin_nav_settings');
+      if (savedSettings) {
+        try {
+          setNavSettings(JSON.parse(savedSettings));
+        } catch (e) {}
+      } else {
+        fetch('/api/settings')
+          .then((res) => res.json())
+          .then((data) => {
+            if (data?.loginButton && data?.registerButton) {
+              setNavSettings(data);
+              try {
+                localStorage.setItem('admin_nav_settings', JSON.stringify(data));
+              } catch (e) {}
+            }
+          })
+          .catch(() => {});
+      }
     } catch {
       setGames(ALL_GAMES);
     }
   }, []);
+
+  const handleSaveNavSettings = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsSavingSettings(true);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(navSettings),
+      });
+      const result = await res.json();
+      if (result.success) {
+        localStorage.setItem('admin_nav_settings', JSON.stringify(navSettings));
+        window.dispatchEvent(new Event('nav-settings-updated'));
+        addAuditLog(
+          'Update Link Tombol',
+          'Navbar CTA (Login & Daftar)',
+          'Tersimpan',
+          `Login: ${navSettings.loginButton.label} | Daftar: ${navSettings.registerButton.label}`
+        );
+        showToast('✅ Pengaturan tombol Login & Daftar berhasil disimpan!');
+      } else {
+        showToast('❌ Gagal menyimpan: ' + (result.error || 'Server error'));
+      }
+    } catch (err: any) {
+      localStorage.setItem('admin_nav_settings', JSON.stringify(navSettings));
+      window.dispatchEvent(new Event('nav-settings-updated'));
+      showToast('✅ Pengaturan disimpan secara lokal!');
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleResetNavSettings = () => {
+    if (confirm('Kembalikan pengaturan tombol Login & Daftar ke nilai awal?')) {
+      const defaults: SiteSettings = {
+        loginButton: {
+          label: 'Login',
+          url: 'https://example.com/login',
+          target: '_blank',
+          isActive: true,
+        },
+        registerButton: {
+          label: 'Daftar',
+          url: 'https://example.com/register',
+          target: '_blank',
+          isActive: true,
+        },
+      };
+      setNavSettings(defaults);
+      showToast('🔄 Pengaturan dikembalikan ke draft default. Klik "Simpan Pengaturan" untuk menerapkan.');
+    }
+  };
 
   // Telemetry live heartbeat
   useEffect(() => {
@@ -642,6 +723,23 @@ export default function AdminDedicatedPage() {
             </button>
 
             <button
+              onClick={() => setActiveNav('buttons')}
+              className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
+                activeNav === 'buttons'
+                  ? 'bg-purple-600/20 text-purple-300 border border-purple-500/40 shadow-[0_0_15px_rgba(139,92,246,0.15)] font-bold'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Link2 className="w-4 h-4 text-emerald-400" />
+                <span>Tombol Login & Daftar</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-[10px] font-mono text-emerald-400 border border-emerald-500/20">
+                Navbar CTA
+              </span>
+            </button>
+
+            <button
               onClick={() => setActiveNav('logs')}
               className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl transition-all ${
                 activeNav === 'logs'
@@ -694,7 +792,7 @@ export default function AdminDedicatedPage() {
               <span>Backoffice</span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
               <span className="text-white font-bold capitalize">
-                {activeNav === 'overview' ? 'Executive Overview' : activeNav}
+                {activeNav === 'overview' ? 'Executive Overview' : activeNav === 'buttons' ? 'Pengaturan Tombol Login & Daftar' : activeNav}
               </span>
             </div>
 
@@ -801,6 +899,36 @@ export default function AdminDedicatedPage() {
                     Perubahan Tercatat Secara Lengkap
                   </div>
                 </div>
+              </div>
+
+              {/* Quick Status Banner: Tombol CTA Navbar */}
+              <div className="bg-[#0b1222] border border-slate-800 rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                    <Link2 className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                      <span>Status Tombol Navbar (Login & Daftar)</span>
+                      <span className="px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-mono font-bold">
+                        Aktif di Navbar
+                      </span>
+                    </h4>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Login: <span className="text-cyan-300 font-mono font-bold">{navSettings.loginButton.isActive ? navSettings.loginButton.label : 'Nonaktif'}</span>{' '}
+                      <span className="text-slate-500 font-mono text-[11px]">({navSettings.loginButton.url})</span> • 
+                      Daftar: <span className="text-amber-300 font-mono font-bold">{navSettings.registerButton.isActive ? navSettings.registerButton.label : 'Nonaktif'}</span>{' '}
+                      <span className="text-slate-500 font-mono text-[11px]">({navSettings.registerButton.url})</span>
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setActiveNav('buttons')}
+                  className="px-4 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-bold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Kelola Link Tombol</span>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
 
               {/* Middle Row: Provider Breakdown & Realtime Feed */}
@@ -1365,6 +1493,546 @@ export default function AdminDedicatedPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: NAVBAR BUTTONS & LINKS SETTINGS (LOGIN & DAFTAR) */}
+          {activeNav === 'buttons' && (
+            <div className="space-y-6 animate-in fade-in duration-200">
+              {/* Header Card */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#0b1222] p-5 sm:p-6 rounded-2xl border border-slate-800 shadow-xl">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider">
+                      Navbar & Header CTA Settings
+                    </span>
+                    <span className="text-slate-500 text-xs">•</span>
+                    <span className="text-slate-400 text-xs font-mono">Real-time Synchronization</span>
+                  </div>
+                  <h3 className="font-black text-white text-xl mt-1.5 flex items-center gap-2.5">
+                    <Link2 className="w-5 h-5 text-emerald-400" />
+                    <span>Pengaturan Tombol Login & Daftar</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                    Atur tautan link URL tujuan, teks label tombol, target tab jendela browser (tab baru atau tab yang sama), serta visibilitas tombol Login dan Daftar di navbar desktop maupun menu mobile.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <button
+                    onClick={handleResetNavSettings}
+                    type="button"
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition-all border border-slate-700"
+                  >
+                    Reset Default
+                  </button>
+                  <button
+                    onClick={handleSaveNavSettings}
+                    disabled={isSavingSettings}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs shadow-neonGlow flex items-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    <span>{isSavingSettings ? 'Menyimpan...' : 'Simpan Pengaturan'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Main Grid: Form Inputs (Left) and Live Previews (Right) */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left 7 Columns: Form Configurations */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Card 1: Tombol Login */}
+                  <div className="bg-[#0b1222] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+                    {/* Header with Switch */}
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                          <LogIn className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-white text-base flex items-center gap-2">
+                            <span>Tombol Login (Masuk)</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 font-bold">
+                              Secondary CTA
+                            </span>
+                          </h4>
+                          <p className="text-xs text-slate-400">Tombol akses masuk bagi anggota atau pemain terdaftar</p>
+                        </div>
+                      </div>
+
+                      {/* Active Toggle Switch */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-400">
+                          {navSettings.loginButton.isActive ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNavSettings({
+                              ...navSettings,
+                              loginButton: {
+                                ...navSettings.loginButton,
+                                isActive: !navSettings.loginButton.isActive,
+                              },
+                            })
+                          }
+                          className={`w-12 h-6 rounded-full transition-colors relative p-0.5 flex items-center cursor-pointer ${
+                            navSettings.loginButton.isActive ? 'bg-emerald-500' : 'bg-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                              navSettings.loginButton.isActive ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inputs */}
+                    <div className="space-y-4 text-xs">
+                      <div>
+                        <label className="block text-slate-300 font-bold mb-1.5">
+                          Teks Label Tombol
+                        </label>
+                        <input
+                          type="text"
+                          value={navSettings.loginButton.label}
+                          onChange={(e) =>
+                            setNavSettings({
+                              ...navSettings,
+                              loginButton: { ...navSettings.loginButton, label: e.target.value },
+                            })
+                          }
+                          placeholder="e.g. Login atau Masuk Akun"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:outline-none focus:border-cyan-500 transition-colors"
+                        />
+                        <span className="text-[11px] text-slate-500 mt-1 block">
+                          Teks yang terpampang pada tombol di navbar (disarankan singkat).
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-slate-300 font-bold">
+                            Link URL Tujuan (Destination Link)
+                          </label>
+                          {navSettings.loginButton.url && (
+                            <a
+                              href={navSettings.loginButton.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 hover:underline font-semibold"
+                            >
+                              <span>Uji Tautan</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={navSettings.loginButton.url}
+                            onChange={(e) =>
+                              setNavSettings({
+                                ...navSettings,
+                                loginButton: { ...navSettings.loginButton, url: e.target.value },
+                              })
+                            }
+                            placeholder="https://situs-utama.com/login"
+                            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-cyan-500 transition-colors"
+                          />
+                        </div>
+                        <span className="text-[11px] text-slate-500 mt-1 block">
+                          Masukkan tautan lengkap URL tujuan (misal: <code className="text-slate-400 font-mono">https://domain.com/login</code> atau link afiliasi Anda).
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-300 font-bold mb-1.5">
+                          Target Jendela Browser (Target Tab)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNavSettings({
+                                ...navSettings,
+                                loginButton: { ...navSettings.loginButton, target: '_blank' },
+                              })
+                            }
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              navSettings.loginButton.target === '_blank'
+                                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300 font-semibold'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="font-bold flex items-center justify-between">
+                              <span>Tab Baru (_blank)</span>
+                              {navSettings.loginButton.target === '_blank' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              Membuka tautan login di tab browser baru
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNavSettings({
+                                ...navSettings,
+                                loginButton: { ...navSettings.loginButton, target: '_self' },
+                              })
+                            }
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              navSettings.loginButton.target === '_self'
+                                ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300 font-semibold'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="font-bold flex items-center justify-between">
+                              <span>Tab Saat Ini (_self)</span>
+                              {navSettings.loginButton.target === '_self' && <Check className="w-3.5 h-3.5 text-cyan-400" />}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              Mengarahkan halaman portal saat ini langsung ke URL login
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card 2: Tombol Daftar */}
+                  <div className="bg-[#0b1222] border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl space-y-5">
+                    {/* Header with Switch */}
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-800/80">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <UserPlus className="w-5 h-5 fill-amber-400" />
+                        </div>
+                        <div>
+                          <h4 className="font-black text-white text-base flex items-center gap-2">
+                            <span>Tombol Daftar (Registrasi)</span>
+                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 font-bold">
+                              Primary Conversion CTA
+                            </span>
+                          </h4>
+                          <p className="text-xs text-slate-400">Tombol pendaftaran anggota baru beraksen gradasi emas-hijau memikat</p>
+                        </div>
+                      </div>
+
+                      {/* Active Toggle Switch */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-slate-400">
+                          {navSettings.registerButton.isActive ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setNavSettings({
+                              ...navSettings,
+                              registerButton: {
+                                ...navSettings.registerButton,
+                                isActive: !navSettings.registerButton.isActive,
+                              },
+                            })
+                          }
+                          className={`w-12 h-6 rounded-full transition-colors relative p-0.5 flex items-center cursor-pointer ${
+                            navSettings.registerButton.isActive ? 'bg-amber-500' : 'bg-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`w-5 h-5 rounded-full bg-white transition-transform ${
+                              navSettings.registerButton.isActive ? 'translate-x-6' : 'translate-x-0'
+                            }`}
+                          />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Inputs */}
+                    <div className="space-y-4 text-xs">
+                      <div>
+                        <label className="block text-slate-300 font-bold mb-1.5">
+                          Teks Label Tombol
+                        </label>
+                        <input
+                          type="text"
+                          value={navSettings.registerButton.label}
+                          onChange={(e) =>
+                            setNavSettings({
+                              ...navSettings,
+                              registerButton: { ...navSettings.registerButton, label: e.target.value },
+                            })
+                          }
+                          placeholder="e.g. Daftar atau Daftar Sekarang"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-medium focus:outline-none focus:border-amber-500 transition-colors"
+                        />
+                        <span className="text-[11px] text-slate-500 mt-1 block">
+                          Teks yang terpampang pada tombol daftar di navbar utama dan mobile.
+                        </span>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-slate-300 font-bold">
+                            Link URL Tujuan (Destination Link)
+                          </label>
+                          {navSettings.registerButton.url && (
+                            <a
+                              href={navSettings.registerButton.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[11px] text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline font-semibold"
+                            >
+                              <span>Uji Tautan</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        <div className="relative">
+                          <Globe className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={navSettings.registerButton.url}
+                            onChange={(e) =>
+                              setNavSettings({
+                                ...navSettings,
+                                registerButton: { ...navSettings.registerButton, url: e.target.value },
+                              })
+                            }
+                            placeholder="https://situs-utama.com/register"
+                            className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono text-xs focus:outline-none focus:border-amber-500 transition-colors"
+                          />
+                        </div>
+                        <span className="text-[11px] text-slate-500 mt-1 block">
+                          Tautan link formulir registrasi / affiliate link pendaftaran.
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-300 font-bold mb-1.5">
+                          Target Jendela Browser (Target Tab)
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNavSettings({
+                                ...navSettings,
+                                registerButton: { ...navSettings.registerButton, target: '_blank' },
+                              })
+                            }
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              navSettings.registerButton.target === '_blank'
+                                ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 font-semibold'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="font-bold flex items-center justify-between">
+                              <span>Tab Baru (_blank)</span>
+                              {navSettings.registerButton.target === '_blank' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              Direkomendasikan agar pemain tetap membuka tab bocoran RTP
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setNavSettings({
+                                ...navSettings,
+                                registerButton: { ...navSettings.registerButton, target: '_self' },
+                              })
+                            }
+                            className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                              navSettings.registerButton.target === '_self'
+                                ? 'bg-amber-500/10 border-amber-500/40 text-amber-300 font-semibold'
+                                : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-600'
+                            }`}
+                          >
+                            <div className="font-bold flex items-center justify-between">
+                              <span>Tab Saat Ini (_self)</span>
+                              {navSettings.registerButton.target === '_self' && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                            </div>
+                            <div className="text-[10px] text-slate-500 mt-0.5">
+                              Mengarahkan halaman saat ini langsung ke halaman pendaftaran
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Save Footer Bar */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0b1222] border border-slate-800 rounded-2xl p-4">
+                    <div className="text-xs text-slate-400 text-center sm:text-left">
+                      Perubahan yang Anda simpan akan langsung disinkronkan ke seluruh antarmuka situs.
+                    </div>
+                    <button
+                      onClick={handleSaveNavSettings}
+                      disabled={isSavingSettings}
+                      className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-black text-xs shadow-neonGlow flex items-center justify-center gap-2 transition-all hover:scale-105 active:scale-95 disabled:opacity-50 cursor-pointer"
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>{isSavingSettings ? 'Menyimpan...' : 'Simpan Semua Perubahan'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Right 5 Columns: Realtime Live Visual Preview */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Visual Preview Card: Desktop Navbar */}
+                  <div className="bg-[#0b1222] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Eye className="w-4 h-4 text-purple-400" />
+                        <h4 className="font-bold text-white text-sm">Pratinjau Langsung (Desktop)</h4>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                        Live Preview
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-400">
+                      Simulasi tampilan tombol di navbar desktop secara realtime:
+                    </p>
+
+                    {/* Desktop Mockup Frame */}
+                    <div className="bg-[#080c14] border border-slate-800 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-800/80">
+                        {/* Mini Logo */}
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-6 h-6 rounded-lg bg-emerald-500 p-0.5">
+                            <div className="w-full h-full bg-[#0b1120] rounded-md flex items-center justify-center">
+                              <Flame className="w-3.5 h-3.5 text-emerald-400" />
+                            </div>
+                          </div>
+                          <span className="text-xs font-black text-white">RTP GACOR</span>
+                        </div>
+
+                        {/* Mini Nav Links */}
+                        <div className="hidden sm:flex items-center gap-1 text-[10px] text-slate-400 font-medium">
+                          <span className="px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold">Home</span>
+                          <span className="px-1.5 py-1">RTP Gacor</span>
+                        </div>
+
+                        {/* Preview Buttons */}
+                        <div className="flex items-center gap-1.5">
+                          {navSettings.loginButton.isActive ? (
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 text-slate-200 text-[10px] font-bold border border-slate-700 shadow-sm">
+                              <LogIn className="w-3 h-3 text-cyan-400" />
+                              <span>{navSettings.loginButton.label || 'Login'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-slate-600 line-through">Login Tersembunyi</span>
+                          )}
+
+                          {navSettings.registerButton.isActive ? (
+                            <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 text-[10px] font-black shadow-neonGlow">
+                              <UserPlus className="w-3 h-3 fill-slate-950" />
+                              <span>{navSettings.registerButton.label || 'Daftar'}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[9px] text-slate-600 line-through">Daftar Tersembunyi</span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="text-[10px] text-slate-500 text-center py-1 font-mono">
+                        Header Sticky • Target: {navSettings.loginButton.target} (Login), {navSettings.registerButton.target} (Daftar)
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Preview Card */}
+                  <div className="bg-[#0b1222] border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal className="w-4 h-4 text-amber-400" />
+                        <h4 className="font-bold text-white text-sm">Pratinjau Menu Mobile (Drawer)</h4>
+                      </div>
+                      <span className="text-[10px] font-mono text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                        Mobile Responsive
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-slate-400">
+                      Tampilan tombol CTA di drawer menu navigasi saat dibuka melalui perangkat HP/mobile:
+                    </p>
+
+                    {/* Mobile Frame Simulation */}
+                    <div className="max-w-[280px] mx-auto bg-[#090e18] border border-slate-800 rounded-2xl p-3 space-y-2.5 shadow-2xl">
+                      <div className="flex items-center justify-between text-[10px] font-mono text-emerald-400 pb-1.5 border-b border-slate-800">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" /> Waktu Server:
+                        </span>
+                        <span>19:30:00 WIB</span>
+                      </div>
+
+                      {/* 2-Button Grid Mobile */}
+                      <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                        {navSettings.loginButton.isActive ? (
+                          <div className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-slate-800 text-white text-[11px] font-bold border border-slate-700">
+                            <LogIn className="w-3 h-3 text-cyan-400" />
+                            <span className="truncate">{navSettings.loginButton.label || 'Login'}</span>
+                          </div>
+                        ) : (
+                          <div className="py-2 px-1 text-center text-[9px] text-slate-600 border border-dashed border-slate-800 rounded-xl">
+                            Login Nonaktif
+                          </div>
+                        )}
+
+                        {navSettings.registerButton.isActive ? (
+                          <div className="flex items-center justify-center gap-1 py-2 px-2 rounded-xl bg-gradient-to-r from-amber-400 to-emerald-400 text-slate-950 text-[11px] font-black shadow-neonGlow">
+                            <UserPlus className="w-3 h-3 fill-slate-950" />
+                            <span className="truncate">{navSettings.registerButton.label || 'Daftar'}</span>
+                          </div>
+                        ) : (
+                          <div className="py-2 px-1 text-center text-[9px] text-slate-600 border border-dashed border-slate-800 rounded-xl">
+                            Daftar Nonaktif
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Mock Links */}
+                      <div className="space-y-1 pt-1 opacity-70">
+                        <div className="px-2.5 py-1.5 rounded-lg bg-emerald-500/20 text-[10px] text-emerald-400 font-semibold border border-emerald-500/30">
+                          Home
+                        </div>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-slate-900 text-[10px] text-slate-300">
+                          RTP Gacor
+                        </div>
+                        <div className="px-2.5 py-1.5 rounded-lg bg-slate-900 text-[10px] text-slate-300">
+                          Top Ranking
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Information & Security Card */}
+                  <div className="bg-gradient-to-br from-purple-950/20 to-slate-900 border border-purple-500/20 rounded-2xl p-5 space-y-3">
+                    <h4 className="font-bold text-white text-xs flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-purple-400" />
+                      <span>Rekomendasi & Keamanan Link CTA</span>
+                    </h4>
+                    <ul className="text-xs text-slate-400 space-y-2 list-disc list-inside">
+                      <li>
+                        Target <strong className="text-slate-300">Tab Baru (_blank)</strong> sangat direkomendasikan agar pemain tetap membuka portal live RTP dan pola spin sambil bermain di tab lain.
+                      </li>
+                      <li>
+                        Tautan eksternal otomatis diproteksi dengan atribut keamanan <code className="text-purple-300 font-mono">rel=&quot;noopener noreferrer&quot;</code> untuk melindungi situs dari eksploitasi tabnabbing.
+                      </li>
+                      <li>
+                        Penyimpanan data tersimpan ganda secara persisten di file server <code className="text-emerald-300 font-mono">settings.json</code> dan <code className="text-emerald-300 font-mono">localStorage</code>.
+                      </li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
           )}
