@@ -219,20 +219,20 @@ export default function AdminDedicatedPage() {
     if (confirm('Kembalikan pengaturan tombol Login & Daftar ke nilai awal?')) {
       const defaults: SiteSettings = {
         loginButton: {
-          label: 'Login',
-          url: 'https://example.com/login',
-          target: '_blank',
-          isActive: true,
+          label: initialSettings?.loginButton?.label || 'Login',
+          url: initialSettings?.loginButton?.url || 'https://tinyurl.com/ac1300-login',
+          target: (initialSettings?.loginButton?.target as '_blank' | '_self') || '_blank',
+          isActive: initialSettings?.loginButton?.isActive ?? true,
         },
         registerButton: {
-          label: 'Daftar',
-          url: 'https://example.com/register',
-          target: '_blank',
-          isActive: true,
+          label: initialSettings?.registerButton?.label || 'Daftar',
+          url: initialSettings?.registerButton?.url || 'https://tinyurl.com/ac1300-daftar',
+          target: (initialSettings?.registerButton?.target as '_blank' | '_self') || '_blank',
+          isActive: initialSettings?.registerButton?.isActive ?? true,
         },
       };
       setNavSettings(defaults);
-      showToast('🔄 Pengaturan dikembalikan ke draft default. Klik "Simpan Pengaturan" untuk menerapkan.');
+      showToast('🔄 Pengaturan dikembalikan ke draft awal.');
     }
   };
 
