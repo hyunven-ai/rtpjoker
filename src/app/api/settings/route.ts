@@ -5,6 +5,9 @@ import os from 'os';
 import { SiteSettings } from '@/types';
 import initialSettings from '@/data/settings.json';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 declare global {
   // eslint-disable-next-line no-var
   var __RTP_SETTINGS__: SiteSettings | undefined;
@@ -25,48 +28,88 @@ const defaultSettings: SiteSettings = {
   },
 };
 
-// Check if Upstash / Vercel KV is configured via environment variables
-const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const KV_URL =
+  process.env.KV_REST_API_URL ||
+  process.env.UPSTASH_REDIS_REST_URL ||
+  'https://rested-gopher-198862.upstash.io';
+
+const KV_TOKEN =
+  process.env.KV_REST_API_TOKEN ||
+  process.env.UPSTASH_REDIS_REST_TOKEN ||
+  'gQAAAAAAAwjOAAIgcDJmZjcxNGIxY2QxODQ0NmE4YWU5MDFhYzkwYTlmYzk4NA';
 
 async function getKvSettings(): Promise<SiteSettings | null> {
-  if (!KV_URL || !KV_TOKEN) return null;
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || KV_URL;
+  const token =
+    process.env.KV_REST_API_TOKEN ||
+    process.env.UPSTASH_REDIS_REST_TOKEN ||
+    process.env.KV_REST_API_READ_ONLY_TOKEN ||
+    KV_TOKEN;
+
+  if (!url || !token) return null;
+
   try {
-    const res = await fetch(`${KV_URL}/get/site_settings`, {
-      headers: { Authorization: `Bearer ${KV_TOKEN}` },
+    const res = await fetch(`${url}/get/site_settings`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
       cache: 'no-store',
     });
-    if (!res.ok) return null;
+
+    if (!res.ok) {
+      console.warn(`Upstash GET returned HTTP ${res.status}`);
+      return null;
+    }
+
     const data = await res.json();
     if (data?.result) {
       const parsed = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
       if (parsed && typeof parsed === 'object') {
         return {
-          loginButton: { ...defaultSettings.loginButton, ...(parsed.loginButton || {}) },
-          registerButton: { ...defaultSettings.registerButton, ...(parsed.registerButton || {}) },
+          loginButton: {
+            ...defaultSettings.loginButton,
+            ...(parsed.loginButton || {}),
+          },
+          registerButton: {
+            ...defaultSettings.registerButton,
+            ...(parsed.registerButton || {}),
+          },
         };
       }
     }
   } catch (err) {
-    console.warn('Failed to read settings from KV:', err);
+    console.warn('Failed to read settings from Upstash KV:', err);
   }
   return null;
 }
 
 async function saveKvSettings(settings: SiteSettings): Promise<boolean> {
-  if (!KV_URL || !KV_TOKEN) return false;
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || KV_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || KV_TOKEN;
+
+  if (!url || !token) return false;
+
   try {
-    const res = await fetch(`${KV_URL}/set/site_settings`, {
+    const dataToStore = JSON.stringify(settings);
+    // Upstash Redis REST Command format: POST to base URL with body ["SET", key, value]
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${KV_TOKEN}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(settings),
+      body: JSON.stringify(['SET', 'site_settings', dataToStore]),
     });
-    return res.ok;
+
+    if (!res.ok) {
+      console.warn(`Upstash SET returned HTTP ${res.status}`);
+      return false;
+    }
+
+    const data = await res.json();
+    return data?.result === 'OK';
   } catch (err) {
-    console.warn('Failed to save settings to KV:', err);
+    console.warn('Failed to save settings to Upstash KV:', err);
     return false;
   }
 }

@@ -157,19 +157,19 @@ export default function AdminDedicatedPage() {
         try {
           setNavSettings(JSON.parse(savedSettings));
         } catch (e) {}
-      } else {
-        fetch('/api/settings')
-          .then((res) => res.json())
-          .then((data) => {
-            if (data?.loginButton && data?.registerButton) {
-              setNavSettings(data);
-              try {
-                localStorage.setItem('admin_nav_settings', JSON.stringify(data));
-              } catch (e) {}
-            }
-          })
-          .catch(() => {});
       }
+      // Always sync latest settings from Upstash KV / Server
+      fetch('/api/settings', { cache: 'no-store' })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.loginButton && data?.registerButton) {
+            setNavSettings(data);
+            try {
+              localStorage.setItem('admin_nav_settings', JSON.stringify(data));
+            } catch (e) {}
+          }
+        })
+        .catch(() => {});
     } catch {
       setGames(ALL_GAMES);
     }
@@ -204,7 +204,11 @@ export default function AdminDedicatedPage() {
       );
 
       if (result && result.success) {
-        showToast('✅ Pengaturan tombol Login & Daftar berhasil disimpan!');
+        if (result.kvSaved) {
+          showToast('✅ Pengaturan tombol tersimpan permanen di Database Cloud!');
+        } else {
+          showToast('✅ Pengaturan tombol Login & Daftar berhasil disimpan!');
+        }
       } else {
         showToast('✅ Pengaturan tombol berhasil disimpan!');
       }
