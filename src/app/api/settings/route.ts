@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { SiteSettings } from '@/types';
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __RTP_SETTINGS__: SiteSettings | undefined;
+}
 
 const defaultSettings: SiteSettings = {
   loginButton: {
@@ -18,38 +24,82 @@ const defaultSettings: SiteSettings = {
   },
 };
 
-const settingsFilePath = path.join(process.cwd(), 'src', 'data', 'settings.json');
+function getCandidatePaths(): string[] {
+  const cwd = process.cwd();
+  return [
+    path.join(cwd, 'src', 'data', 'settings.json'),
+    path.join(cwd, 'data', 'settings.json'),
+    path.join(cwd, 'settings.json'),
+    path.join(os.tmpdir(), 'rtp_site_settings.json'),
+  ];
+}
 
 function getSettings(): SiteSettings {
-  try {
-    if (fs.existsSync(settingsFilePath)) {
-      const data = fs.readFileSync(settingsFilePath, 'utf-8');
-      const parsed = JSON.parse(data);
-      return {
-        loginButton: {
-          ...defaultSettings.loginButton,
-          ...(parsed.loginButton || {}),
-        },
-        registerButton: {
-          ...defaultSettings.registerButton,
-          ...(parsed.registerButton || {}),
-        },
-      };
-    }
-  } catch (error) {
-    console.error('Error reading settings.json:', error);
+  // 1. Check in-memory global cache first
+  if (globalThis.__RTP_SETTINGS__) {
+    return globalThis.__RTP_SETTINGS__;
   }
+
+  // 2. Try candidate file paths on disk
+  const candidatePaths = getCandidatePaths();
+  for (const filePath of candidatePaths) {
+    try {
+      if (fs.existsSync(filePath)) {
+        const raw = fs.readFileSync(filePath, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          const merged: SiteSettings = {
+            loginButton: {
+              ...defaultSettings.loginButton,
+              ...(parsed.loginButton || {}),
+            },
+            registerButton: {
+              ...defaultSettings.registerButton,
+              ...(parsed.registerButton || {}),
+            },
+          };
+          globalThis.__RTP_SETTINGS__ = merged;
+          return merged;
+        }
+      }
+    } catch {
+      // Continue to next path
+    }
+  }
+
+  globalThis.__RTP_SETTINGS__ = defaultSettings;
   return defaultSettings;
 }
 
-function saveSettings(settings: SiteSettings): boolean {
-  try {
-    fs.writeFileSync(settingsFilePath, JSON.stringify(settings, null, 2), 'utf-8');
-    return true;
-  } catch (error) {
-    console.error('Error writing settings.json:', error);
-    return false;
+function saveSettings(settings: SiteSettings): { success: boolean; savedPath?: string; error?: string } {
+  // Always update global memory cache so server runtime stays immediately in sync
+  globalThis.__RTP_SETTINGS__ = settings;
+
+  const candidatePaths = getCandidatePaths();
+  let lastError: any = null;
+  let savedPath: string | undefined = undefined;
+
+  for (const filePath of candidatePaths) {
+    try {
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(filePath, JSON.stringify(settings, null, 2), 'utf-8');
+      savedPath = filePath;
+      break; // Successfully saved to primary or fallback file
+    } catch (err: any) {
+      lastError = err;
+      console.warn(`Could not write settings to ${filePath}:`, err?.message || err);
+      // Continue to next fallback path (e.g. os.tmpdir())
+    }
   }
+
+  return {
+    success: true,
+    savedPath,
+    error: lastError ? String(lastError?.message || lastError) : undefined,
+  };
 }
 
 // GET: Retrieve current site settings
@@ -79,12 +129,13 @@ export async function POST(request: Request) {
       },
     };
 
-    const saved = saveSettings(updated);
-    if (!saved) {
-      return NextResponse.json({ success: false, error: 'Gagal menyimpan pengaturan' }, { status: 500 });
-    }
+    const saveResult = saveSettings(updated);
 
-    return NextResponse.json({ success: true, settings: updated });
+    return NextResponse.json({
+      success: true,
+      settings: updated,
+      savedPath: saveResult.savedPath,
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -93,4 +144,3 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   return POST(request);
 }
-

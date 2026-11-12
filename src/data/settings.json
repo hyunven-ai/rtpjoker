@@ -1,13 +1,13 @@
 {
   "loginButton": {
     "label": "Login",
-    "url": "https://tinyurl.com/ucl300-login",
+    "url": "https://tinyurl.com/ac1300-login",
     "target": "_blank",
     "isActive": true
   },
   "registerButton": {
     "label": "Daftar",
-    "url": "https://tinyurl.com/ucl300-daftar",
+    "url": "https://tinyurl.com/ac1300-daftar",
     "target": "_blank",
     "isActive": true
   }
